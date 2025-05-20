@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Synopsis Scoring System</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      color: #333;
+    }
+    h1 {
+      margin: 30px 0 10px;
+      color: #222;
+      font-weight: 700;
+    }
+    p.subtitle {
+      margin: 0 0 30px;
+      font-size: 1.1rem;
+      color: #555;
+    }
+    .container {
+      background: white;
+      max-width: 720px;
+      width: 95%;
+      padding: 25px 30px 40px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      border-radius: 12px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .file-upload {
+      border: 2px dashed #4a90e2;
+      padding: 35px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.3s ease;
+      color: #4a90e2;
+      font-weight: 600;
+      position: relative;
+    }
+    .file-upload:hover {
+      background-color: #e3f2fd;
+    }
+    .file-upload input[type="file"] {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .filename {
+      margin-top: 10px;
+      font-style: italic;
+      color: #555;
+      font-size: 0.9rem;
+    }
+    button[type="submit"] {
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.25s ease;
+    }
+    button[type="submit"]:hover:not(:disabled) {
+      background-color: #357ABD;
+    }
+    button[type="submit"]:disabled {
+      background-color: #9dbce5;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 30px;
+      padding: 25px 30px;
+      background: #e9f0fe;
+      border-radius: 12px;
+      box-shadow: inset 0 0 8px #c7d6ff;
+      user-select: text;
+    }
+    .score-bar {
+      margin-top: 15px;
+    }
+    .score-label {
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #2a2f4a;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 20px;
+      background: #d0d7e8;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background-color: #4a90e2;
+      border-radius: 12px 0 0 12px;
+      transition: width 0.6s ease;
+      box-shadow: 0 0 8px rgba(74, 144, 226, 0.5);
+    }
+    ul.feedback-list {
+      margin: 20px 0 0 0;
+      padding-left: 20px;
+      color: #35425e;
+    }
+    ul.feedback-list li {
+      margin-bottom: 10px;
+      font-size: 1rem;
+    }
+    .error {
+      margin-top: 20px;
+      background: #f8d7da;
+      color: #842029;
+      border-radius: 8px;
+      padding: 15px 20px;
+      font-weight: 600;
+    }
+    @media (max-width: 480px) {
+      .container {
+        padding: 20px 20px 30px;
+      }
+      button[type="submit"] {
+        padding: 12px;
+        font-size: 1rem;
+      }
+      .file-upload {
+        padding: 30px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Synopsis Scoring System</h1>
+  <p class="subtitle">Upload an article and its synopsis to get detailed scoring and feedback.</p>
+  <div class="container">
+    <form id="uploadForm" novalidate>
+      <label for="articleFile">Upload Article (PDF or TXT)</label>
+      <div class="file-upload" id="articleDropZone">
+        Click or Drag & Drop your article file here
+        <input type="file" id="articleFile" name="article" accept=".pdf,.txt" required />
+        <div class="filename" id="articleFilename"></div>
+      </div>
+
+      <label for="synopsisFile">Upload Synopsis (PDF or TXT)</label>
+      <div class="file-upload" id="synopsisDropZone">
+        Click or Drag & Drop your synopsis file here
+        <input type="file" id="synopsisFile" name="synopsis" accept=".pdf,.txt" required />
+        <div class="filename" id="synopsisFilename"></div>
+      </div>
+
+      <button type="submit" id="submitBtn" disabled>Get Score & Feedback</button>
+    </form>
+
+    <div id="result" class="result" style="display:none;">
+      <h2>Total Score: <span id="totalScore"></span>/100</h2>
+      <div id="breakdown"></div>
+      <h3>Feedback</h3>
+      <ul class="feedback-list" id="feedbackList"></ul>
+    </div>
+    <div id="errorMessage" class="error" style="display:none;"></div>
+  </div>
+
+  <script>
+    const articleFileInput = document.getElementById('articleFile');
+    const synopsisFileInput = document.getElementById('synopsisFile');
+    const articleFilenameDiv = document.getElementById('articleFilename');
+    const synopsisFilenameDiv = document.getElementById('synopsisFilename');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultDiv = document.getElementById('result');
+    const totalScoreSpan = document.getElementById('totalScore');
+    const breakdownDiv = document.getElementById('breakdown');
+    const feedbackList = document.getElementById('feedbackList');
+    const errorMessageDiv = document.getElementById('errorMessage');
+
+    function updateFilenameDisplay(inputElem, displayElem) {
+      if (inputElem.files.length > 0) {
+        displayElem.textContent = inputElem.files[0].name;
+      } else {
+        displayElem.textContent = '';
+      }
+    }
+
+    function checkEnableSubmit() {
+      submitBtn.disabled = !(articleFileInput.files.length > 0 && synopsisFileInput.files.length > 0);
+    }
+
+    articleFileInput.addEventListener('change', () => {
+      updateFilenameDisplay(articleFileInput, articleFilenameDiv);
+      checkEnableSubmit();
+    });
+
+    synopsisFileInput.addEventListener('change', () => {
+      updateFilenameDisplay(synopsisFileInput, synopsisFilenameDiv);
+      checkEnableSubmit();
+    });
+
+    const articleDropZone = document.getElementById('articleDropZone');
+    articleDropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      articleDropZone.style.backgroundColor = '#e3f2fd';
+    });
+    articleDropZone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      articleDropZone.style.backgroundColor = '';
+    });
+    articleDropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      articleDropZone.style.backgroundColor = '';
+      if (e.dataTransfer.files.length > 0) {
+        articleFileInput.files = e.dataTransfer.files;
+        updateFilenameDisplay(articleFileInput, articleFilenameDiv);
+        checkEnableSubmit();
+      }
+    });
+
+    const synopsisDropZone = document.getElementById('synopsisDropZone');
+    synopsisDropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      synopsisDropZone.style.backgroundColor = '#e3f2fd';
+    });
+    synopsisDropZone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      synopsisDropZone.style.backgroundColor = '';
+    });
+    synopsisDropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      synopsisDropZone.style.backgroundColor = '';
+      if (e.dataTransfer.files.length > 0) {
+        synopsisFileInput.files = e.dataTransfer.files;
+        updateFilenameDisplay(synopsisFileInput, synopsisFilenameDiv);
+        checkEnableSubmit();
+      }
+    });
+
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMessageDiv.style.display = 'none';
+      resultDiv.style.display = 'none';
+
+      if (!(articleFileInput.files.length > 0 && synopsisFileInput.files.length > 0)) {
+        errorMessageDiv.textContent = 'Please upload both article and synopsis files.';
+        errorMessageDiv.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Scoring...';
+
+      try {
+        const formData = new FormData();
+        formData.append('article', articleFileInput.files[0]);
+        formData.append('synopsis', synopsisFileInput.files[0]);
+
+        const response = await fetch('http://127.0.0.1:5000/score', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        totalScoreSpan.textContent = data.total_score;
+
+        breakdownDiv.innerHTML = '';
+        for (const [criteria, score] of Object.entries(data.breakdown)) {
+          const bar = document.createElement('div');
+          bar.classList.add('score-bar');
+          bar.innerHTML = `
+            <div class="score-label">${criteria}: ${score}/20</div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width: ${(score / 20) * 100}%"></div>
+            </div>
+          `;
+          breakdownDiv.appendChild(bar);
+        }
+
+        feedbackList.innerHTML = '';
+        data.feedback.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          feedbackList.appendChild(li);
+        });
+
+        resultDiv.style.display = 'block';
+      } catch (err) {
+        errorMessageDiv.textContent = `Error: ${err.message}`;
+        errorMessageDiv.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Get Score & Feedback';
+      }
+    });
+  </script>
+</body>
+</html>
